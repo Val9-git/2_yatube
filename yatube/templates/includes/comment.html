@@ -1,0 +1,63 @@
+<!-- templates/includes/comment.html -->
+<!-- Форма добавления комментария -->
+{% load user_filters %}
+
+{% if user.is_authenticated %}
+  <div class="card my-4">
+    <h5 class="card-header">Добавить комментарий:</h5>
+    <div class="card-body">
+      <form method="post" action="{% url 'posts:add_comment' post.id %}">
+        {% csrf_token %}      
+        <div class="form-group mb-2">
+          {{ form.text|addclass:"form-control" }}
+        </div>
+        <button type="submit" class="btn btn-primary">Отправить</button>
+      </form>
+    </div>
+  </div>
+{% endif %}
+
+{% for comment in comments %}
+  <div class="media mb-4">
+    <div class="media-body">
+      <h5 class="mt-0">
+        <a href="{% url 'posts:profile' comment.author.username %}">
+          {{ comment.author.username }}
+        </a>
+      </h5>
+      <p>
+        {{ comment.text }}
+      </p>
+    </div>
+  </div>
+{% endfor %}
+
+{% comment %} <div class="container py-5">
+  {% block content %}
+  {% load thumbnail %}
+    <article>
+      <ul>
+        {% if not hide_author_link %}
+          <li>
+            Автор: {{ post.author.get_full_name }}
+
+            <a href="{% url 'posts:profile' post.author.username %}">
+              все посты пользователя
+            </a>
+          </li>
+        {% endif %}
+        <li>
+          Дата публикации: {{ post.pub_date|date:"d E Y" }}
+        </li>
+      </ul>
+      {% thumbnail post.image "960x339" crop="center" upscale=True as im %}
+        <img class="card-img my-2" src="{{ im.url }}">
+      {% endthumbnail %}
+      <p>{{ post.text|linebreaks }}</p>
+      <a href="{% url 'posts:post_detail' post.id %}">подробная информация </a>
+    </article>
+    {% if post.group and not hide_group_link %}
+      <a href="{% url 'posts:group_posts' post.group.id %}">все записи группы
+      </a>
+    {% endif %}
+  {% endblock %} {% endcomment %}
