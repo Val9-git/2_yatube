@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
 
 User = get_user_model()
 
@@ -75,6 +75,32 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ['-created']
+
+    def __str__(self):
+        return self.text
+
+
+class Follow(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор комментария',
+        related_name='follower',
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор комментария',
+        related_name='following',
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=~models.Q(user=models.F("author")),
+                name='check_not_self_follow'
+            ),
+        ]
 
     def __str__(self):
         return self.text

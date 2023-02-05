@@ -3,8 +3,8 @@ from django.conf import settings as s
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Group, Post
-# from django.core.files.uploadedfile import SimpleUploadedFile
+from posts.models import Group, Post, Follow
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
 
 
@@ -18,16 +18,29 @@ class PostViewTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create(username='author_user')
+
+        cls.small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x01\x00'
+            b'\x01\x00\x00\x00\x00\x21\xf9\x04'
+            b'\x01\x0a\x00\x01\x00\x2c\x00\x00'
+            b'\x00\x00\x01\x00\x01\x00\x00\x02'
+            b'\x02\x4c\x01\x00\x3b'
+        )
+        cls.uploaded = SimpleUploadedFile(
+            name='small.gif',
+            content=cls.small_gif,
+            content_type='image/gif'
+        )
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test_slug',
-            description='Тестовое описание группы',
+            description='Тестовое описание группы'
         )
         cls.post = Post.objects.create(
-            author=cls.user,
+            text='test_post',
             group=cls.group,
-            text='Тестовый пост',
-            image='posts/tolstoy.jpg'
+            author=cls.user,
+            image=cls.uploaded
         )
 
         cls.pages_names_templates = {
@@ -154,3 +167,77 @@ class PaginatorViewsTest(TestCase):
         response = self.authorized_client.get(
             reverse('posts:index') + '?page=2')
         self.assertEqual(len(response.context['page_obj']), 3)
+
+
+class FollowViewsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.guest_client = Client()
+        cls.author = User.objects.create(username='test_author')
+        cls.auth_author_client = Client()
+        cls.auth_author_client.force_login(cls.author)
+        cls.user_fol = User.objects.create(username='test_user_fol')
+        cls.authorized_user_fol_client = Client()
+        cls.authorized_user_fol_client.force_login(cls.user_fol)
+        cls.user_unfol = User.objects.create(username='test_user_unfol')
+        cls.authorized_user_unfol_client = Client()
+        cls.authorized_user_unfol_client.force_login(cls.user_unfol)
+
+        cls.group = Group.objects.create(
+            title='test_group',
+            slug='test_slug',
+            description='test_description'
+        )
+        cls.post = Post.objects.create(
+            text='test_post',
+            group=cls.group,
+            author=cls.author
+        )
+
+    def test_follow(self):
+        """Тест работы подписки на автора."""
+        client = FollowViewsTest.authorized_user_unfol_client
+        user = FollowViewsTest.user_unfol
+        author = FollowViewsTest.author
+        client.get(reverse('posts:profile_follow', args=[author.username]))
+        follower = Follow.objects.filter(user=user, author=author).exists()
+        self.assertTrue(follower, 'Подписка не работает')
+
+    def test_unfollow(self):
+        """Тест работы отписки от автора."""
+        client = FollowViewsTest.authorized_user_unfol_client
+        user = FollowViewsTest.user_unfol
+        author = FollowViewsTest.author
+        client.get(reverse('posts:profile_unfollow', args=[author.username]),)
+        follower = Follow.objects.filter(user=user, author=author).exists()
+        self.assertFalse(follower, 'Отписка не работает')
+
+    def test_new_author_post_for_follower(self):
+        client = FollowViewsTest.authorized_user_fol_client
+        author = FollowViewsTest.author
+        group = FollowViewsTest.group
+        client.get(reverse('posts:profile_follow', args=[author.username]))
+        new_post = Post.objects.create(
+            text='test_new_post', group=group, author=author)
+        cache.clear()
+        response_new = client.get(reverse('posts:follow_index'))
+        new_posts = response_new.context['page_obj']
+        self.assertEqual(len(response_new.context['page_obj']), 2)
+        self.assertIn(new_post, new_posts)
+
+    def test_new_author_post_for_unfollower(self):
+        client = FollowViewsTest.authorized_user_unfol_client
+        author = FollowViewsTest.author
+        group = FollowViewsTest.group
+
+        new_post = Post.objects.create(
+            text='test_new_post',
+            group=group,
+            author=author
+        )
+        cache.clear()
+        response_new = client.get(reverse('posts:follow_index'))
+        new_posts = response_new.context['page_obj']
+        self.assertEqual(len(response_new.context['page_obj']), 0)
+        self.assertNotIn(new_post, new_posts)

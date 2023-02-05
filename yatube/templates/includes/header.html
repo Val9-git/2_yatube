@@ -31,7 +31,7 @@
                 <a class="nav-link link-light {% if view_name  == 'users:logout' %}active{% endif %}"
                   href="{% url 'users:logout' %}">Выйти</a>
               </li>
-              <li>
+              <li class="nav-link link-dark">
                 Пользователь: {{ user.username }}
               </li>
             {% else %}
