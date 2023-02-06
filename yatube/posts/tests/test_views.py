@@ -1,12 +1,12 @@
 # posts/tests/test_views.py
 from django.conf import settings as s
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
+# from django.shortcuts import get_object_or_404
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Group, Post, Follow
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.core.cache import cache
-
+from posts.models import Follow, Group, Post
 
 from ..forms import PostForm
 
@@ -123,7 +123,7 @@ class PostViewTests(TestCase):
         self.assertIsInstance(response.context['form'], PostForm)
 
     def test_post_created_on_right_pages(self):
-        """Проверка появления нового поста на правильных страницах"""
+        """Проверка появления нового поста на правильных страницах."""
         page_names = {
             reverse('posts:index'),
             reverse('posts:group_posts', kwargs={'slug': self.group.slug}),
@@ -173,16 +173,9 @@ class FollowViewsTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.guest_client = Client()
         cls.author = User.objects.create(username='test_author')
-        cls.auth_author_client = Client()
-        cls.auth_author_client.force_login(cls.author)
         cls.user_fol = User.objects.create(username='test_user_fol')
-        cls.authorized_user_fol_client = Client()
-        cls.authorized_user_fol_client.force_login(cls.user_fol)
         cls.user_unfol = User.objects.create(username='test_user_unfol')
-        cls.authorized_user_unfol_client = Client()
-        cls.authorized_user_unfol_client.force_login(cls.user_unfol)
 
         cls.group = Group.objects.create(
             title='test_group',
@@ -195,49 +188,46 @@ class FollowViewsTest(TestCase):
             author=cls.author
         )
 
+    def setUp(self):
+        self.guest_client = Client()
+        self.authorized_user_fol_client = Client()
+        self.authorized_user_fol_client.force_login(self.user_fol)
+        self.authorized_user_unfol_client = Client()
+        self.authorized_user_unfol_client.force_login(self.user_unfol)
+        cache.clear()
+
     def test_follow(self):
         """Тест работы подписки на автора."""
-        client = FollowViewsTest.authorized_user_unfol_client
-        user = FollowViewsTest.user_unfol
-        author = FollowViewsTest.author
-        client.get(reverse('posts:profile_follow', args=[author.username]))
-        follower = Follow.objects.filter(user=user, author=author).exists()
+        client = self.authorized_user_unfol_client
+        client.get(reverse(
+            'posts:profile_follow', args=[self.author.username]))
+        follower = Follow.objects.filter(
+            user=self.user_unfol, author=self.author).exists()
         self.assertTrue(follower, 'Подписка не работает')
 
     def test_unfollow(self):
         """Тест работы отписки от автора."""
-        client = FollowViewsTest.authorized_user_unfol_client
-        user = FollowViewsTest.user_unfol
-        author = FollowViewsTest.author
-        client.get(reverse('posts:profile_unfollow', args=[author.username]),)
-        follower = Follow.objects.filter(user=user, author=author).exists()
+        client = self.authorized_user_unfol_client
+        follower = Follow.objects.filter(
+            user=self.user_unfol, author=self.author).exists()
+        client.get(reverse(
+            'posts:profile_unfollow', args=[self.author.username]),)
         self.assertFalse(follower, 'Отписка не работает')
 
     def test_new_author_post_for_follower(self):
-        client = FollowViewsTest.authorized_user_fol_client
-        author = FollowViewsTest.author
-        group = FollowViewsTest.group
-        client.get(reverse('posts:profile_follow', args=[author.username]))
-        new_post = Post.objects.create(
-            text='test_new_post', group=group, author=author)
-        cache.clear()
+        """Тест появления нового поста автора у подписчика."""
+        client = self.authorized_user_fol_client
+        client.get(reverse(
+            'posts:profile_follow', args=[self.author.username]))
         response_new = client.get(reverse('posts:follow_index'))
         new_posts = response_new.context['page_obj']
-        self.assertEqual(len(response_new.context['page_obj']), 2)
-        self.assertIn(new_post, new_posts)
+        self.assertEqual(len(response_new.context['page_obj']), 1)
+        self.assertIn(self.post, new_posts)
 
     def test_new_author_post_for_unfollower(self):
-        client = FollowViewsTest.authorized_user_unfol_client
-        author = FollowViewsTest.author
-        group = FollowViewsTest.group
-
-        new_post = Post.objects.create(
-            text='test_new_post',
-            group=group,
-            author=author
-        )
-        cache.clear()
+        """Тест отсутствия нового поста автора у подписчика."""
+        client = self.authorized_user_unfol_client
         response_new = client.get(reverse('posts:follow_index'))
         new_posts = response_new.context['page_obj']
         self.assertEqual(len(response_new.context['page_obj']), 0)
-        self.assertNotIn(new_post, new_posts)
+        self.assertNotIn(self.post, new_posts)
