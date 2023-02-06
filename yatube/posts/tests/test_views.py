@@ -3,7 +3,6 @@ from django.conf import settings as s
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-# from django.shortcuts import get_object_or_404
 from django.test import Client, TestCase
 from django.urls import reverse
 from posts.models import Follow, Group, Post

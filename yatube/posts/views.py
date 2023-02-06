@@ -32,8 +32,6 @@ def profile(request, username):
     following = False
     if Follow.objects.filter(user=request.user.id, author=author):
         following = True
-    # following = Follow.objects.filter(user=request.user.id,
-    #   author=author).exists()
     context = {
         'author': author,
         'page_obj': page_obj,
