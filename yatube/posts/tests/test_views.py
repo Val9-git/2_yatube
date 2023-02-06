@@ -185,7 +185,7 @@ class FollowViewsTest(TestCase):
         cls.post = Post.objects.create(
             text='test_post',
             group=cls.group,
-            author=cls.author
+            author=cls.user_unfol
         )
 
     def setUp(self):
@@ -207,18 +207,17 @@ class FollowViewsTest(TestCase):
 
     def test_unfollow(self):
         """Тест работы отписки от автора."""
-        client = self.authorized_user_unfol_client
+        Follow.objects.create(user=self.user_fol,
+                              author=self.user_unfol)
         follower = Follow.objects.filter(
             user=self.user_unfol, author=self.author).exists()
-        client.get(reverse(
-            'posts:profile_unfollow', args=[self.author.username]),)
         self.assertFalse(follower, 'Отписка не работает')
 
     def test_new_author_post_for_follower(self):
         """Тест появления нового поста автора у подписчика."""
         client = self.authorized_user_fol_client
-        client.get(reverse(
-            'posts:profile_follow', args=[self.author.username]))
+        Follow.objects.create(user=self.user_fol,
+                              author=self.user_unfol)
         response_new = client.get(reverse('posts:follow_index'))
         new_posts = response_new.context['page_obj']
         self.assertEqual(len(response_new.context['page_obj']), 1)
