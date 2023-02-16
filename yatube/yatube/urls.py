@@ -32,6 +32,10 @@ handler500 = 'core.views.server_error'
 # handler403csrf = 'core.views.csrf_failure'
 
 if s.DEBUG:
+    import debug_toolbar
+
+    urlpatterns += (path('__debug__/', include(debug_toolbar.urls)),)
+
     urlpatterns += static(
         s.MEDIA_URL, document_root=s.MEDIA_ROOT
     )
