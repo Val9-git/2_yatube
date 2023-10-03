@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'kg9s+=z$b3ut!yo*vdp799n14$)62atji@3d%gf!%sw#d-18-2'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # view-функция, обрабатывающая ошибку 403.
 CSRF_FAILURE_VIEW = 'core.views.csrf_failure'
